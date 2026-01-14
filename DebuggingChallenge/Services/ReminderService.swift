@@ -39,8 +39,26 @@ final class DefaultReminderService: ReminderService {
         self.dataSource = dataSource
     }
 
-    func fetchReminders(completion: @escaping ([Reminder]) -> Void) {
+    func fetchReminders(completion: @escaping Result<([Reminder],Error>) -> Void) {
+     let group=DispatchGroup()
+     let lock=NSLock()
         var reminders: [Reminder] = []
+     var firstError:Error?
+     for page in [1,2,3]{
+      group.enter()
+      api.fetchReminders(page:page){
+       result inlock.lock()
+       defer{lock.unlock()}
+       switch result{case .success(let reminders):
+                    all.append(contentsOf:reminders)
+                    case.failure(let error):
+                    if firstError==nil{firstError=error}}
+      group.leave()}
+      }
+     }
+ group.notify(queue:.main){if let err=firstError{completion(.success(uniqueById(all)))
+                                                }
+                          }
 
         for _ in 0 ..< 3 {
             dataSource.fetchReminders {
