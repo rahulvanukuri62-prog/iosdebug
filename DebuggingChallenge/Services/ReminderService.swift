@@ -69,31 +69,18 @@ final class DefaultReminderService: ReminderService {
         completion(reminders)
     }
 
-    func remindersPublisher() -> AnyPublisher<[Reminder], Never> {
-        var reminders: [Reminder] = []
-
-        return Future { promise in
-            (0..<3).forEach { _ in
-                self.dataSource.fetchReminders { newReminders in
-                    reminders.append(contentsOf: newReminders)
-                }
-            }
-            promise(.success(reminders))
-        }
+    func remindersPublisher() -> AnyPublisher<[Reminder], Error> {
+     let pubs=[1,2,3].map{page in api.fetchRemaindersPublisher(page:page)}
+        return Publishers.MergeMany(pubs).collect().map{pages in uniqueById(pages.flatMap{$0})}
         .eraseToAnyPublisher()
     }
 
     func fetchRemindersAsync() async -> [Reminder] {
-        var reminders: [Reminder] = []
-
-        for _ in 0..<3 {
-            Task {
-                let fetched = await self.dataSource.fetchReminders()
-                reminders.append(contentsOf: fetched)
-            }
-        }
-
-        return reminders
+     async let r1=api.fetchReminders(page:1)
+     async let r2=api.fetchReminders(page:2)
+     async let r3=api.fetchReminders(page:3)
+     let (a,b,c)=try await(r1,r2,r3)
+     return uniqueById(a+b+c)
     }
 }
 /*
